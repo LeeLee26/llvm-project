@@ -231,13 +231,13 @@ static SmallString<128> getFilename(const DIScope *SP, vfs::FileSystem &VFS) {
 
 /// Canonicalize a path by making it absolute and removing dots.
 /// Compared to sys::fs::real_path, it will not resolve symlinks.
-static StringRef canonicalizePath(StringRef P) {
+static ErrorOr<SmallString<256>> canonicalizePath(StringRef P) {
   SmallString<256> Ret = P;
   std::error_code Err = sys::fs::make_absolute(Ret);
   if (Err)
-    return P;
+    return Err;
   sys::path::remove_dots(Ret, /*removedotdot*/ true);
-  return Ret.str();
+  return Ret;
 }
 
 namespace {
@@ -477,12 +477,17 @@ bool GCOVProfiler::isFunctionInstrumented(const Function &F) {
     return It->second;
   }
 
-  SmallString<256> RealPath;
+  StringRef RealFilename;
 
   // Path can be
   // /usr/lib/gcc/x86_64-linux-gnu/8/../../../../include/c++/8/bits/*.h so for
   // such a case we must get the canonicalized path.
-  StringRef RealFilename = canonicalizePath(Filename);
+  ErrorOr<SmallString<256>> RealPathOrErr = canonicalizePath(Filename);
+  if (!RealPathOrErr)
+    RealFilename = Filename;
+  else {
+    RealFilename = *RealPathOrErr;
+  }
 
   bool ShouldInstrument;
   if (FilterRe.empty()) {
