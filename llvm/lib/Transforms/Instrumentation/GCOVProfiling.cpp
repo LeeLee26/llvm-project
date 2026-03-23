@@ -237,7 +237,7 @@ static StringRef canonicalizePath(StringRef P) {
   if (Err)
     return P;
   sys::path::remove_dots(Ret, /*removedotdot*/ true);
-  return Ret;
+  return Ret.str();
 }
 
 namespace {
